@@ -1,0 +1,86 @@
+                           BRUTEBLOCK V0.0.5
+
+About bruteblock
+
+   Bruteblock allows system administrators to block various bruteforce
+   attacks on UNIX services. The program analyzes system logs and
+   adds attacker's IP address into ipfw2 table effectively blocking them.
+   Addresses are automatically removed from the table after specified
+   abound of time. Bruteblock uses regular expressions to parse
+   logs, which gives flexibility allowing it to be used with almost
+   any network service. Bruteblock is written in pure C, doesn't
+   use any external programs and works with ipfw2 tables via raw
+   sockets API.
+
+System requirements
+
+   Bruteblock requires FreeBSD 5.3 and above (tested on FreeBSD
+   5.3, 5.4, 6.1) with ipfw2 firewall. To compile and run the
+   program, you'll need PCRE library, which may be installed from
+   ports (devel/pcre).
+
+How it works
+
+   Bruteblock consists of two binaries: bruteblock and bruteblockd.
+   `bruteblock' is intended to be used in /etc/syslog.conf to pipe
+   logs into. It does log analysis and adding addresses into ipfw
+   table. Along with address and mask, every entry in ipfw2 table
+   has `value` field, which is used by bruteblock to store expiration
+   time as 32 bit UNIX timestamp. `bruteblock' is a daemon, which
+   checks ipfw2 table periodically and removes expired entries.
+
+   Such design allows to avoid any IPC use and to store entries for
+   different services in one table. This also makes it easy for the
+   administrator to get list of currently blocked addresses and
+   edit the list if needed so.
+
+Installation
+
+   To compile the program run `make` in bruteblock directory. After
+   compilation, copy bruteblock and bruteblockd files into system
+   binary directory (/usr/local/sbin). Copy bruteblock-ssh.conf
+   into directory where configuration files are located (/usr/local/etc)
+   and edit it to make it suit your needs. Edit /etc/syslog.conf
+   and add the following entry:
+
+   auth.info;authpriv.info      |exec /usr/local/sbin/bruteblock -f /usr/local/etc/bruteblock-ssh.conf
+
+   then restart syslogd (/etc/rc.d/syslogd restart).
+
+   Run bruteblockd, specifying the same ipfw2 table number as in
+   config file (with -t parameter, e.g. '# /usr/local/bin/bruteblockd -t 1'). 
+   Finally, add ipfw rules to block any packets from addresses that match 
+   the table, like this:
+
+   ipfw add 100 deny ip from me to table\(1\)
+   ipfw add 100 deny ip from table\(1\) to me
+
+   Now bruteblock will do it's job.
+
+Configuration
+
+   Configuration file for bruteblock utility allows you to set
+   following values:
+
+   "regexp" - regular expression in perl-compatible format that is
+   used to extract failed password attempts from log files.
+   "regexp0","regexp1",... "regexp9" - optional fields with up to 10 additional
+   regular expressions.
+   "max_count", "within_time" - defines time interval and maximum number of 
+   failed password attempts during that interval. If the number is exceeded
+   by specific IP, that IP is blocked.
+   "reset_ip" - time-to-live of a block. When it expires, address is
+   removed from table, thus becoming unblocked.
+   "ipfw2_table_no" - number of ipfw2 table to add bad IPs to. Must
+   match -t parameter of bruteblockd.
+
+TODO
+
+   Add configuration examples for other popular services, add IPv6 support 
+   (help  needed), optimize algorithms used by bruteblock, add pf support
+
+   Any feedback is appreciated. Author's email: samm [at] os2.kiev.ua.
+
+Homepage
+
+   http://samm.kiev.ua/bruteblock/

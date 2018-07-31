@@ -1,0 +1,16 @@
+Q: I`m using PF firewall, can i use bruteblock?
+A: Currently bruteblock have no support for the PF firewall, but you
+   can use pf and ipfw together without problems. Make ipfw ruleset like this:
+
+ipfw add 10 deny ip from table\(1\) to any
+ipfw add 10 deny ip from any to table\(1\)
+ipfw add 20 allow all from any to any
+
+and all incoming packets will be checked with ipfw and then go to pf firewall
+
+Q: I want to make my own regular expression, how can i do this?
+A: bruteblock uses pcre for the regular expressions handling. 
+   PCRE description located at http://www.pcre.org/pcre.txt. You need
+   to make regexp which match log lines with bruteforce attempts and first (!)
+   matched expression in () must match remote ip address. You can test your
+   regexp with "pcretest" utility from the pcre distribution.

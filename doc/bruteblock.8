@@ -1,0 +1,132 @@
+.Dd July 31, 2006
+.Dt bruteblock 8
+.Os FreeBSD
+.Sh NAME 
+.Nm bruteblock
+.Nd utility to block bruteforce attacks
+.Sh SYNOPSIS 
+.Nm bruteblock
+.Op Fl f Ar configfile
+.Op Fl h
+.Nm bruteblockd Fl t Ar table
+.Op Fl s Ar sleep
+.Op Fl p Ar pidfile
+.Op Fl f
+.Op Fl h
+.Sh DESCRIPTION 
+Bruteblock allows system administrators to block various bruteforce
+attacks on UNIX services. The program analyzes system logs and adds
+attacker's IP address into ipfw2 table effectively blocking them.
+Addresses are automatically removed from the table after specified
+amount of time. Bruteblock uses regular expressions to parse logs,
+which provides flexibility allowing it to be used with almost any
+network service. Bruteblock is written in pure C, doesn't use any
+external programs and work with ipfw2 tables via raw sockets API.
+.Pp
+Bruteblock consists of two binaries: 
+.Em bruteblock
+and 
+.Em bruteblockd .
+.Pp
+.Ss bruteblock
+.Em bruteblock
+is intended to be used in
+.Pa /etc/syslog.conf
+to pipe
+logs into. It does log analysis and adds attacker IP's into ipfw2
+table. Along with address and mask, every entry in ipfw2 table has
+.Em value
+field, which is used by bruteblock to store expiration time as 32
+bit UNIX timestamp.
+.Pp
+The following command line options are available for bruteblock:
+.Bl -tag -width indent
+.It Fl f Ar configfile
+Specify path to config file
+.It Fl h
+Display help
+.El
+.Ss bruteblockd
+.Em bruteblock
+is a daemon, which checks ipfw2 table periodically and removes
+expired entries.
+.Pp
+The following command line options are available for bruteblockd:
+.Bl -tag -width indent
+.It Fl t Ar table
+Specify numer of ipfw2 table
+.It Fl s Ar sleep
+Specify table check interval
+.It Fl p Ar pidfile
+Specify location of the pid file
+.It Fl f
+Run the daemon in the foreground (do not daemonize)
+.It Fl h
+Display help
+.El
+.Pp
+Such design allows to avoid any IPC use and to store entries for
+different services in one table. Also makes it is easy for the
+administrator to get list of currently blocked addresses and edit
+the list if needed so.
+.Sh CONFIGURATION FILE
+Configuration file for bruteblock utility allows you to set following
+values:
+.Bl -tag -width indent 
+.It regexp
+regular expression in perl-compatible format that is used to extract
+failed password attempts from log files.
+.It max_count, within_time
+defines time interval and maximum number of failed password attempts
+during that interval. If the number is exceeded by specific IP,
+that IP is blocked.
+.It reset_ip
+time-to-live of table entry. When it expires, address is removed from
+the table, thus being unblocked.
+.It ipfw2_table_no
+number of ipfw2 table to add bad IPs to. Must match -t parameter
+of bruteblockd.
+.El
+.Sh EXAMPLE (SSH)
+First, you need to establish log processing to determine attacker's
+IPs and add them to ipfw2 table.
+Edit
+.Pa /etc/syslog.conf
+and add the following entry:
+.Bd -literal
+auth.info;authpriv.info	| exec /usr/local/sbin/bruteblock -f /usr/local/etc/bruteblock/ssh.conf
+.Ed
+.Pp
+then restart syslogd.
+.Pp
+Next, you'll want to setup periodical cleanup of ipfw2 table.
+Add following lines to
+.Pa /etc/rc.conf :
+.Bd -literal
+bruteblockd_enable="YES"
+bruteblockd_table="1"
+bruteblockd_flags="-s 5"
+.Ed
+.Pp
+don't forget to change table number and sleep interval to match your needs.
+.Pp
+Now launch bruteblockd: /usr/local/etc/rc.d/bruteblockd.sh start
+.Pp
+Finally, setup your ipfw to block addresses contained in the table:
+.Bd -literal
+ipfw add 100 deny ip from me to table\\(1\\)
+ipfw add 100 deny ip from table\\(1\\) to me
+.Ed
+.Pp
+you may want to add these lines to you
+.Pa /etc/rc.firewall .
+.Sh SYSTEM REQUIREMENTS 
+Bruteblock requires FreeBSD 5.3 and above (tested on FreeBSD 5.3,
+5.4, 6.1) with ipfw2 firewall.
+.Sh SEE ALSO 
+.Xr ipfw 8 ,
+.Xr rc.conf 5 ,
+.Xr syslog.conf 5
+.Sh AUTHOR 
+.An Alex Samorukov Aq samm@os2.kiev.ua ,
+.Ad http://samm.kiev.ua/bruteblock/

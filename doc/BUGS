@@ -1,0 +1,8 @@
+Known BUGZ:
+
+Hi priority
+* Log records like "last message was repeated x time" now ignored
+
+Low priority
+* Add FAQ sections about pf, pcretest and sea piggs.
+

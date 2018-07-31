@@ -1,0 +1,20 @@
+0.0.5 - 20.08.06 (bugfix release)
+    + added configuration file for the proftpd daemon
+    # fixed max_count processing - thanks to Gray for reporting
+    # sshd regular expressions are now more strict
+
+0.0.4 - 13.08.06
+    + now its possible to specify up to 10 additional regexps
+    + regexps like (:?(ip1)|(ip2)) now handling correctly
+
+0.0.3 - 03.08.06 (bugfix release)
+    # Fixed compilation on FreeBSD < 6.1 (pidfile_*() related)
+
+0.0.2 - 02.08.06 
+    + added ability to daemonize and -p (pidfile) switch to syslogd
+    # Makefile`s changed to respect CFLAGS/LDFLAGS
+    + added english documentation and man pages
+    # some code cleanup, indent(), etc...
+    
+0.0.1 - 28.07.06
+    # first public version
