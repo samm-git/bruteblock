@@ -99,8 +99,8 @@ check_host(char *host)
 				snprintf(table, sizeof(table), "%d", ipfw2_table_no);
 				argv[1] = table;
 				argv[2] = command;
-				snprintf(utime, sizeof(utime), "%d",
-				time(NULL) + reset_ip);
+				snprintf(utime, sizeof(utime), "%lld",
+				(long long)(time(NULL) + reset_ip));
 				argv[4] = utime;
 				argv[3] = host;
 				

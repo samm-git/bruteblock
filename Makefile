@@ -18,7 +18,7 @@ iniparse/libiniparser.a: $(INIPARSE_SRC) $(INIPARSE_H)
 bruteblock: $(BRUTEBLOCK_OBJS) iniparse/libiniparser.a
 	$(CC) $(LDFLAGS) -o $@ $(BRUTEBLOCK_OBJS) $(EXTRA_LIBS)
 
-bruteblockd: $(BRUTEBLOCKD_OBJS) pidfile.h
+bruteblockd: $(BRUTEBLOCKD_OBJS) iniparse/libiniparser.a pidfile.h
 	$(CC) $(LDFLAGS) -o $@ $(BRUTEBLOCKD_OBJS) $(EXTRA_LIBS)
 
 clean:
