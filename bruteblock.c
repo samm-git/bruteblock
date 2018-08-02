@@ -105,9 +105,11 @@ block(const char *host)
 
 	rc = table_handler(argc, argv);
 	if (rc)
+	{
 		syslog(LOG_ERR, "Adding %s to table %d failed, rc=%d", host, ipfw2_table_no, rc);
-	else
-		free(argv);
+	}	
+	
+	free(argv);
 }
 	
 /* check out expired or grown hosts */
@@ -209,7 +211,6 @@ main(int ac, char *av[])
 		config_path);
 		exit(EX_CONFIG);
 	}
-	
 	
 	max_count = iniparser_getint(ini, ":max_count", -1);
 	if (max_count < 0) {
