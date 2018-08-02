@@ -45,80 +45,103 @@ usage()
 	exit(EX_USAGE);
 }
 
-
-static int 
-add_host(char *host)
+/* add host or increase the counter */
+static void
+update(const char *host)
 {
-	int		i;
+	int found = 0;
 	
-	for (i = 0; i < MAXHOSTS; i++) {
-		/* find empty record */
-		if (hosts_table[i].count == 0) {
-			hosts_table[i].count = 1;
-			hosts_table[i].access_time = time(NULL);
-			strncpy(hosts_table[i].ipaddr, host,
-			sizeof(hosts_table[i].ipaddr));
-			return 0;
+	for (int i = 0; i < MAXHOSTS; ++i) {
+		if (!strcmp(host, hosts_table[i].ipaddr)) {
+			/* record has found */
+			found = i;
+			break;
 		}
 	}
-	/* table is full! */
-	return 1;
+
+	if (found) {
+		/* increase the counter */
+		hosts_table[found].count++;
+	}
+	else {
+		/* find first empty record */
+		for (int i = 0; i < MAXHOSTS; ++i) {
+			if (hosts_table[i].count == 0) {
+				/* store the record */
+				strncpy(hosts_table[i].ipaddr, host, sizeof(hosts_table[i].ipaddr));
+				hosts_table[i].ipaddr[sizeof(hosts_table[i].ipaddr) - 1] = '\0';
+				hosts_table[i].access_time = time(NULL);
+				hosts_table[i].count = 1;
+				break;
+			}
+		}
+	}
 }
 
-
-static int 
-check_host(char *host)
+/* block host */
+static void
+block(const char *host)
 {
+	char	table[200];
+	int	argc = 5;
+	char	**argv;
+	char	utime[200];
+	int	rc;
 	
-	char		mode      [] = "table";
-	char		command   [] = "add";
-	char		table     [200] = "";
-	char		utime     [200] = "";
-	char          **argv;
-	int		argc = 5;
-	int		rc;
-	int		i;
-	int		curtime = time(NULL);
-	
+	bzero(table, sizeof(table));
 	snprintf(table, sizeof(table), "%d", ipfw2_table_no);
-	for (i = 0; i < MAXHOSTS; i++) {
+	
+	bzero(utime, sizeof(utime));
+	snprintf(utime, sizeof(utime), "%lld", (long long) (time(NULL) + reset_ip));
+				
+	argv = calloc(argc, sizeof(char *));
+	argv[0] = "table";
+	argv[1] = table;
+	argv[2] = "add";
+	argv[3] = (char *) host;
+	argv[4] = utime;
+	
+	syslog(LOG_INFO, "Adding %s to the ipfw table %d", host, ipfw2_table_no);
+
+	rc = table_handler(argc, argv);
+	if (rc)
+	{
+		syslog(LOG_ERR, "Adding %s to table %d failed, rc=%d", host, ipfw2_table_no, rc);
+	}	
+	
+	free(argv);
+}
+	
+/* check out expired or grown hosts */
+static void
+check(const char *host)
+{
+	time_t	curtime = time(NULL);
+
+	for (int i = 0; i < MAXHOSTS; ++i) {
+		
 		/* skip empty sets */
 		if (!hosts_table[i].count)
 			continue;
+		
 		/* cleanup expired hosts */ 
 		if (hosts_table[i].access_time + within_time < curtime) {
 			hosts_table[i].count = 0;
 			continue;
 		}
-		/* host in the hosts table */
-		if (strcmp(host, hosts_table[i].ipaddr) == 0) {
-			hosts_table[i].count++;
+		
+		if (!strcmp(host, hosts_table[i].ipaddr)) {
 			if (hosts_table[i].count == max_count) {
-				argv = calloc(argc, sizeof(char *));
-				argv[0] = mode;
-				snprintf(table, sizeof(table), "%d", ipfw2_table_no);
-				argv[1] = table;
-				argv[2] = command;
-				snprintf(utime, sizeof(utime), "%d",
-				time(NULL) + reset_ip);
-				argv[4] = utime;
-				argv[3] = host;
-				
-				syslog(LOG_INFO, "Adding %s to the ipfw table %d", host, ipfw2_table_no);
-				rc = table_handler(argc, argv);
-				if (rc)
-					syslog(LOG_ERR, "Adding %s to table %d failed, rc=%d",
-				host, ipfw2_table_no, rc);
-				else
-					free(argv);
-			} else if (hosts_table[i].count > max_count) {
-				syslog(LOG_NOTICE, "Blocking failed for %s",
-				host);
+				/* block the host */
+				block(host);
 			}
-			return 1;
+			else
+				if (hosts_table[i].count > max_count) {
+					syslog(LOG_NOTICE, "Host %s already blocked", host);
+				}
+			break;
 		}
 	}
-	return 0;
 }
 
 void 
@@ -128,7 +151,7 @@ print_table()
 	for (i = 0; i < MAXHOSTS; i++) {
 		/* skip empty sets */
 		if (hosts_table[i].count) {
-			printf("table: ip=%s,count=%d,time=%d\n",
+			printf("table: ip=%s,count=%d,time=%ld\n",
 			hosts_table[i].ipaddr, hosts_table[i].count,
 			hosts_table[i].access_time);
 		}
@@ -189,7 +212,6 @@ main(int ac, char *av[])
 		exit(EX_CONFIG);
 	}
 	
-	
 	max_count = iniparser_getint(ini, ":max_count", -1);
 	if (max_count < 0) {
 		syslog(LOG_ALERT, "Configuration error - 'max_count' key not found in \"%s\"",
@@ -229,8 +251,8 @@ main(int ac, char *av[])
 	/* searching for additonal regexp patterns, e.g. regexp0-regexp1*/
 	
 	for(i=0;i<10;i++){
-		snprintf(buffer, BUFFER_SIZE, ":regexp%d", i);
-		regexp = iniparser_getstr(ini, buffer);
+		snprintf((char *)buffer, BUFFER_SIZE, ":regexp%d", i);
+		regexp = iniparser_getstr(ini, (char *)buffer);
 		if (regexp) {
   			re[re_count] = pcre_compile(
 			regexp,	/* the pattern */
@@ -254,8 +276,8 @@ main(int ac, char *av[])
 			re[k],	/* the compiled pattern */
 			NULL,	/* no extra data - we didn't study
 			* the pattern */
-			buffer,	/* the subject string */
-			strlen(buffer),	/* the length of the subject */
+			(char *)buffer,	/* the subject string */
+			strlen((char *)buffer),	/* the length of the subject */
 			0,	/* start at offset 0 in the subject */
 			0,	/* default options */
 			ovector,	/* output vector for substring
@@ -275,7 +297,7 @@ main(int ac, char *av[])
 			}
 			for (i = 1; i < rc; i++) 
 			{
-				char *substring_start = buffer + ovector[2*i];
+				char *substring_start = (char *)buffer + ovector[2*i];
 				int substring_length = ovector[2*i+1] - ovector[2*i];
 				if(substring_length){ /* skip "unset" patterns */
 					snprintf(hostaddprp, sizeof(hostaddr), "%.*s",
@@ -283,11 +305,11 @@ main(int ac, char *av[])
 					matches++;
 				}
 			}
-			if (matches == 1){ /* we have ip address to add */
-				if (!check_host(hostaddprp)) {
-					/* not in table, add */
-					add_host(hostaddprp);
-				}
+			if (matches == 1)
+			{ 	/* add host or increase the counter */
+				update(hostaddprp);
+				/* check out expired or grown hosts */
+				check(hostaddprp);
 				matches = 0;
 				break;
 			}
