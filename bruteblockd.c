@@ -42,7 +42,7 @@ int
 main(int ac, char *av[])
 {
 	int		argc;
-	int		rc = 0,	ch;
+	int		ch;
 	int		sleep_time = 5;	/* 5 sec default sleep time */
 	int		daemonize = 1;
 	const char     *pid_file = NULL;
@@ -131,7 +131,7 @@ main(int ac, char *av[])
 			break;
 		}
 		snprintf(table, sizeof(table), "%d", ipfw2_table_no);
-		rc = table_handler(argc, argv);
+		table_handler(argc, argv);
 		sleep(sleep_time);
 	}
 

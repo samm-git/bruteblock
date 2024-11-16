@@ -13,7 +13,6 @@ int		table_handler(int ac, char *av[]);
 int 
 process_record(char *host, unsigned int exptime)
 {
-	int		rc = 0;
 	int		argc = 4;
 	char		mode      [] = "table";
 	char		table     [100] = "";
@@ -32,7 +31,7 @@ process_record(char *host, unsigned int exptime)
 
 		syslog(LOG_INFO, "Removing host %s from table %d",
 		       host, ipfw2_table_no);
-		rc = table_handler(argc, argv);
+		table_handler(argc, argv);
 	}
 	free(argv);
 	return 0;

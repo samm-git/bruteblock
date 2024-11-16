@@ -1,7 +1,7 @@
 LOCALBASE?=/usr/local
-CFLAGS+=-s -Wall -I${LOCALBASE}/include
+CFLAGS+= -Wall -I${LOCALBASE}/include
 LDFLAGS+=-s
-EXTRA_LIBS=-L${LOCALBASE}/lib -Liniparse -lpcre -liniparser
+EXTRA_LIBS=-L${LOCALBASE}/lib -Liniparse -lpcre2-8 -liniparser
 CC?=gcc
 AR?=ar
 
