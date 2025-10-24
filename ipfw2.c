@@ -198,7 +198,9 @@ do_get3(int optname, ip_fw3_opheader *op3, size_t *optlen)
 	socklen_t len;
 
 	op3->opcode = optname;
+	#ifdef IP_FW3_OPVER
     op3->version = IP_FW3_OPVER; /* use last version */
+	#endif
 
 	if (g_co.debug_only) {
 		struct debug_header dbg = {
