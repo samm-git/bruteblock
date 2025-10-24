@@ -2133,6 +2133,7 @@ table_show_value(char *buf, size_t bufsize, ipfw_table_value *v,
 			    NI_NUMERICHOST) == 0)
 				l = snprintf(buf, sz, "%s,", abuf);
 			break;
+		}
 
 		buf += l;
 		sz -= l;
