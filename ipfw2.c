@@ -2256,12 +2256,6 @@ table_do_get_algolist(ipfw_obj_lheader **polh)
 	return (table_do_get_stdlist(IP_FW_TABLES_ALIST, polh));
 }
 
-static int
-table_do_get_vlist(ipfw_obj_lheader **polh)
-{
-
-	return (table_do_get_stdlist(IP_FW_TABLE_VLIST, polh));
-}
 
 void
 ipfw_list_ta(int ac __unused, char *av[] __unused)
@@ -2290,50 +2284,9 @@ ipfw_list_ta(int ac __unused, char *av[] __unused)
 }
 
 
-static int
-compare_values(const void *_a, const void *_b)
-{
-	const ipfw_table_value *a, *b;
 
-	a = (const ipfw_table_value *)_a;
-	b = (const ipfw_table_value *)_b;
 
-	if (a->kidx < b->kidx)
-		return (-1);
-	else if (a->kidx > b->kidx)
-		return (1);
 
-	return (0);
-}
-
-void
-ipfw_list_values(int ac __unused, char *av[] __unused)
-{
-	char buf[128];
-	ipfw_obj_lheader *olh;
-	ipfw_table_value *v;
-	uint32_t i, vmask;
-	int error;
-
-	error = table_do_get_vlist(&olh);
-	if (error != 0)
-		err(EX_OSERR, "Unable to request value list");
-
-	vmask = 0x7FFFFFFF; /* Similar to IPFW_VTYPE_LEGACY */
-
-	table_print_valheader(buf, sizeof(buf), vmask);
-	printf("HEADER: %s\n", buf);
-	v = (ipfw_table_value *)(olh + 1);
-	qsort(v, olh->count, olh->objsize, compare_values);
-	for (i = 0; i < olh->count; i++) {
-		table_show_value(buf, sizeof(buf), (ipfw_table_value *)v,
-		    vmask, 0);
-		printf("[%u] refs=%lu %s\n", v->kidx, (u_long)v->refcnt, buf);
-		v = (ipfw_table_value *)((caddr_t)v + olh->objsize);
-	}
-
-	free(olh);
-}
 
 int
 table_check_name(const char *tablename)
