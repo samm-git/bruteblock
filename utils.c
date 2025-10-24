@@ -8,7 +8,7 @@
 #include <stdarg.h>
 
 extern int	ipfw2_table_no;
-int		ipfw_table_handler(int ac, char *av[]);
+void ipfw_table_handler(int ac, char *av[]);
 
 int 
 process_record(char *host, unsigned int exptime)

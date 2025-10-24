@@ -14,7 +14,7 @@ int		ipfw2_table_no = -1;
 static int	exit_requested = 0;
 
 int		process_record(char *host, unsigned int exptime);
-int		ipfw_table_handler(int ac, char *av[]);
+void		ipfw_table_handler(int ac, char *av[]);
 int		process_record(char *host, unsigned int exptime);
 
 static void
