@@ -110,7 +110,6 @@ static struct _s_x tablevaltypes[] = {
       { "limit",	IPFW_VTYPE_LIMIT },
       { "ipv4",		IPFW_VTYPE_NH4 },
       { "ipv6",		IPFW_VTYPE_NH6 },
-      { "mark",		IPFW_VTYPE_MARK },
       { NULL, 0 }
 };
 
@@ -1918,11 +1917,7 @@ tentry_fill_value(ipfw_obj_header *oh __unused, ipfw_obj_tentry *tent,
 			}
 			etype = "ipv6";
 			break;
-		case IPFW_VTYPE_MARK:
-			v->mark = strtol(n, &e, 16);
-			if (*e != '\0')
-				etype = "mark";
-			break;
+
 		}
 
 		if (etype != NULL)
@@ -2138,10 +2133,6 @@ table_show_value(char *buf, size_t bufsize, ipfw_table_value *v,
 			    NI_NUMERICHOST) == 0)
 				l = snprintf(buf, sz, "%s,", abuf);
 			break;
-		case IPFW_VTYPE_MARK:
-			l = snprintf(buf, sz, "%#x,", v->mark);
-			break;
-		}
 
 		buf += l;
 		sz -= l;
