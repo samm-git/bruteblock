@@ -24,7 +24,7 @@ typedef struct {
 
 hosts		hosts_table[MAXHOSTS];
 
-int		table_handler(int ac, char *av[]);
+int		ipfw_table_handler(int ac, char *av[]);
 
 int		process_record(char *host, unsigned int reset_ip);
 
@@ -105,7 +105,7 @@ check_host(char *host)
 				argv[3] = host;
 				
 				syslog(LOG_INFO, "Adding %s to the ipfw table %d", host, ipfw2_table_no);
-				rc = table_handler(argc, argv);
+				rc = ipfw_table_handler(argc, argv);
 				if (rc)
 					syslog(LOG_ERR, "Adding %s to table %d failed, rc=%d",
 				host, ipfw2_table_no, rc);

@@ -8,7 +8,7 @@
 #include <stdarg.h>
 
 extern int	ipfw2_table_no;
-int		table_handler(int ac, char *av[]);
+int		ipfw_table_handler(int ac, char *av[]);
 
 int 
 process_record(char *host, unsigned int exptime)
@@ -31,7 +31,7 @@ process_record(char *host, unsigned int exptime)
 
 		syslog(LOG_INFO, "Removing host %s from table %d",
 		       host, ipfw2_table_no);
-		table_handler(argc, argv);
+		ipfw_table_handler(argc, argv);
 	}
 	free(argv);
 	return 0;

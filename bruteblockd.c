@@ -14,7 +14,7 @@ int		ipfw2_table_no = -1;
 static int	exit_requested = 0;
 
 int		process_record(char *host, unsigned int exptime);
-int		table_handler(int ac, char *av[]);
+int		ipfw_table_handler(int ac, char *av[]);
 int		process_record(char *host, unsigned int exptime);
 
 static void
@@ -131,7 +131,7 @@ main(int ac, char *av[])
 			break;
 		}
 		snprintf(table, sizeof(table), "%d", ipfw2_table_no);
-		table_handler(argc, argv);
+		ipfw_table_handler(argc, argv);
 		sleep(sleep_time);
 	}
 
