@@ -1,3 +1,9 @@
+0.0.7 - 07.10.26
+    + added IPv6 support
+    + IPv6 addresses are now aggregated and blocked as a network using
+      the new ipv6_prefixlen option (default /64), so an attacker cannot
+      evade blocking by rotating addresses within its own prefix
+
 0.0.6 - 17.11.24
     # fix compiler warnings and import FreeBSD port patches
     + use pcre2 instad of pcre, as pcre is deprecated
