@@ -90,4 +90,4 @@ Any feedback is appreciated. Author's email: samm [at] os2.kiev.ua.
 
 ## Homepage
 
-<http://samm.kiev.ua/bruteblock/>
+<https://github.com/samm-git/bruteblock>
