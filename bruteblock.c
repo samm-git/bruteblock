@@ -53,79 +53,111 @@ usage()
 }
 
 
-static int 
-add_host(char *host)
+/*
+ * Record a failed attempt for host, adding a new record if needed.
+ * Stale records are dropped while scanning. The counter is updated here
+ * and the threshold is enforced by check_host() afterwards, so that
+ * max_count = 1 also blocks on the very first attempt.
+ */
+static void
+update_host(const char *host)
 {
 	int		i;
-	
+	int		freeslot = -1;
+	time_t		curtime = time(NULL);
+
 	for (i = 0; i < MAXHOSTS; i++) {
-		/* find empty record */
+		/* remember the first reusable record */
 		if (hosts_table[i].count == 0) {
-			hosts_table[i].count = 1;
-			hosts_table[i].access_time = time(NULL);
-			strncpy(hosts_table[i].ipaddr, host,
-			sizeof(hosts_table[i].ipaddr));
-			hosts_table[i].ipaddr[sizeof(hosts_table[i].ipaddr) - 1] = '\0';
-			return 0;
+			if (freeslot < 0)
+				freeslot = i;
+			continue;
+		}
+		/* drop records older than within_time */
+		if (hosts_table[i].access_time + within_time < curtime) {
+			hosts_table[i].count = 0;
+			if (freeslot < 0)
+				freeslot = i;
+			continue;
+		}
+		/* host is already tracked, bump the counter */
+		if (strcmp(host, hosts_table[i].ipaddr) == 0) {
+			hosts_table[i].count++;
+			return;
 		}
 	}
-	/* table is full! */
-	return 1;
+
+	if (freeslot < 0) {
+		syslog(LOG_NOTICE, "Host table is full, cannot track %s", host);
+		return;
+	}
+
+	hosts_table[freeslot].count = 1;
+	hosts_table[freeslot].access_time = time(NULL);
+	strncpy(hosts_table[freeslot].ipaddr, host,
+	    sizeof(hosts_table[freeslot].ipaddr));
+	hosts_table[freeslot].ipaddr[sizeof(hosts_table[freeslot].ipaddr) - 1] = '\0';
 }
 
 
-static int 
-check_host(char *host)
+/*
+ * Add host to the ipfw table with an expiration time. Called once the
+ * number of attempts reaches max_count.
+ */
+static void
+block_host(const char *host)
 {
-	
 	char		mode      [] = "table";
 	char		command   [] = "add";
 	char		table     [200] = "";
 	char		utime     [200] = "";
 	char          **argv;
 	int		argc = 5;
-	int		i;
-	int		curtime = time(NULL);
-	
+
 	snprintf(table, sizeof(table), "%d", ipfw2_table_no);
-	for (i = 0; i < MAXHOSTS; i++) {
-		/* skip empty sets */
-		if (!hosts_table[i].count)
-			continue;
-		/* cleanup expired hosts */ 
-		if (hosts_table[i].access_time + within_time < curtime) {
-			hosts_table[i].count = 0;
-			continue;
-		}
-		/* host in the hosts table */
-		if (strcmp(host, hosts_table[i].ipaddr) == 0) {
-			hosts_table[i].count++;
-			if (hosts_table[i].count == max_count) {
-				argv = calloc(argc, sizeof(char *));
-				argv[0] = mode;
-				snprintf(table, sizeof(table), "%d", ipfw2_table_no);
-				argv[1] = table;
-				argv[2] = command;
-				snprintf(utime, sizeof(utime), "%lld",
-				(long long)(time(NULL) + reset_ip));
-				argv[4] = utime;
-				argv[3] = host;
-				
-				syslog(LOG_INFO, "Adding %s to the ipfw table %d", host, ipfw2_table_no);
-				ipfw_table_handler(argc, argv);
-				if (errno)
-					syslog(LOG_ERR, "Adding %s to table %d failed, errno: %d",
-				host, ipfw2_table_no, errno);
-				else
-					free(argv);
-			} else if (hosts_table[i].count > max_count) {
-				syslog(LOG_NOTICE, "Blocking failed for %s",
-				host);
-			}
-			return 1;
-		}
+	snprintf(utime, sizeof(utime), "%lld",
+	    (long long)(time(NULL) + reset_ip));
+
+	if ((argv = calloc(argc, sizeof(char *))) == NULL) {
+		syslog(LOG_ERR, "calloc failed, cannot block %s", host);
+		return;
 	}
-	return 0;
+	argv[0] = mode;
+	argv[1] = table;
+	argv[2] = command;
+	argv[3] = (char *)host;
+	argv[4] = utime;
+
+	syslog(LOG_INFO, "Adding %s to the ipfw table %d", host, ipfw2_table_no);
+	ipfw_table_handler(argc, argv);
+	free(argv);
+}
+
+
+/*
+ * Enforce the max_count threshold for host. Runs right after
+ * update_host(), so the first attempt is evaluated as well.
+ */
+static void
+check_host(const char *host)
+{
+	int		i;
+	time_t		curtime = time(NULL);
+
+	for (i = 0; i < MAXHOSTS; i++) {
+		if (hosts_table[i].count == 0)
+			continue;
+		if (hosts_table[i].access_time + within_time < curtime)
+			continue;
+		if (strcmp(host, hosts_table[i].ipaddr) != 0)
+			continue;
+		if (hosts_table[i].count == max_count) {
+			block_host(host);
+		} else if (hosts_table[i].count > max_count) {
+			syslog(LOG_NOTICE, "Host %s already blocked", host);
+		}
+		return;
+	}
 }
 
 void 
@@ -384,10 +416,9 @@ main(int ac, char *av[])
 					matches = 0;
 					break;
 				}
-				if (!check_host(normalized)) {
-					/* not in table, add */
-					add_host(normalized);
-				}
+				/* record the attempt and enforce max_count */
+				update_host(normalized);
+				check_host(normalized);
 				matches = 0;
 				break;
 			}

@@ -1,3 +1,9 @@
+0.8.0 - 07.10.26
+    # fixed the check algorithm so that max_count = 1 blocks a host on the
+      first failed attempt instead of never blocking it
+    # the misleading "Blocking failed" message is now "Host ... already
+      blocked" (logged for attempts after the host was blocked)
+
 0.7.0 - 07.10.26
     + added IPv6 support
     + IPv6 addresses are now aggregated and blocked as a network using
