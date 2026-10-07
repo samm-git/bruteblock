@@ -9,8 +9,8 @@ ipfw add 20 allow all from any to any
 and all incoming packets will be checked with ipfw and then go to pf firewall
 
 Q: I want to make my own regular expression, how can i do this?
-A: bruteblock uses pcre for the regular expressions handling. 
-   PCRE description located at https://www.pcre.org/current/doc/html/. You need
+A: bruteblock uses PCRE2 for the regular expressions handling. 
+   PCRE2 description located at https://www.pcre.org/current/doc/html/. You need
    to make regexp which match log lines with bruteforce attempts and first (!)
    matched expression in () must match remote ip address. You can test your
-   regexp with "pcre2test" utility from the pcre distribution.
+   regexp with "pcre2test" utility from the PCRE2 distribution.
