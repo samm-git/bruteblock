@@ -86,6 +86,12 @@ the table, thus being unblocked.
 .It ipfw2_table_no
 number of ipfw2 table to add bad IPs to. Must match -t parameter
 of bruteblockd.
+.It ipv6_prefixlen
+prefix length used to aggregate IPv6 attackers.  Addresses that share
+the same network are counted and blocked together, so an attacker
+cannot evade blocking by rotating through addresses inside its own
+prefix.  Defaults to 64, a typical IPv6 subscriber prefix.  Set to 128
+to block individual IPv6 addresses.
 .El
 .Sh EXAMPLE (SSH)
 First, you need to establish log processing to determine attacker's

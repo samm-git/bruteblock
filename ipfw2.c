@@ -2161,6 +2161,17 @@ table_show_entry(ipfw_xtable_info *i, ipfw_obj_tentry *tent)
 	case IPFW_TABLE_ADDR:
 		/* IPv4 or IPv6 prefixes */
 		inet_ntop(tent->subtype, &tent->k, tbuf, sizeof(tbuf));
+		/*
+		 * Table listing does not carry the prefix length back to
+		 * callers, so restore it here. IPv4 entries are always /32
+		 * (bruteblock does not aggregate them), while IPv6 entries
+		 * may be stored with a shorter prefix and would not match
+		 * on removal otherwise.
+		 */
+		if (tent->subtype == AF_INET6 && tent->masklen != 128)
+			snprintf(tbuf + strlen(tbuf),
+			    sizeof(tbuf) - strlen(tbuf), "/%u",
+			    (unsigned)tent->masklen);
 		// printf("%s/%u %s\n", tbuf, tent->masklen, pval);
         process_record(tbuf,atoi(pval));
 		break;

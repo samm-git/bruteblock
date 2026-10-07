@@ -8,6 +8,11 @@
 #include <stdlib.h>
 #include <err.h>
 #include <errno.h>
+#include <stdint.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
 #include <syslog.h>
@@ -33,6 +38,7 @@ int		max_count = -1;
 int		within_time = -1;
 int		ipfw2_table_no = -1;
 int		reset_ip = -1;
+int		ipv6_prefixlen = 64;
 
 
 static void 
@@ -59,6 +65,7 @@ add_host(char *host)
 			hosts_table[i].access_time = time(NULL);
 			strncpy(hosts_table[i].ipaddr, host,
 			sizeof(hosts_table[i].ipaddr));
+			hosts_table[i].ipaddr[sizeof(hosts_table[i].ipaddr) - 1] = '\0';
 			return 0;
 		}
 	}
@@ -136,11 +143,79 @@ print_table()
 	
 }
 
+/*
+ * Convert an address extracted from a log line into an ipfw table key.
+ *
+ * IPv4 addresses are used as-is to preserve the existing behaviour.
+ * IPv6 addresses are masked down to ipv6_prefixlen, so that an attacker
+ * cannot evade blocking by rotating through addresses within its own
+ * prefix. The resulting key is either an IPv6 address ("2001:db8::1")
+ * when ipv6_prefixlen is 128, or a network in CIDR notation
+ * ("2001:db8:1:2::/64") otherwise.
+ *
+ * Returns 0 on success, -1 if the string is not a valid IP address.
+ */
+static int
+normalize_host(const char *host, char *out, size_t outsize)
+{
+	struct in_addr	a4;
+	struct in6_addr	a6;
+	char		buf[INET6_ADDRSTRLEN];
+	int		i, plen;
+
+	if (inet_pton(AF_INET, host, &a4) == 1) {
+		/* Keep IPv4 handling untouched */
+		if (strlcpy(out, host, outsize) >= outsize)
+			return -1;
+		return 0;
+	}
+
+	if (inet_pton(AF_INET6, host, &a6) != 1)
+		return -1;
+
+	/* ::ffff:a.b.c.d is really an IPv4 address */
+	if (IN6_IS_ADDR_V4MAPPED(&a6)) {
+		struct in_addr mapped;
+
+		memcpy(&mapped, &a6.s6_addr[12], sizeof(mapped));
+		if (inet_ntop(AF_INET, &mapped, buf, sizeof(buf)) == NULL)
+			return -1;
+		if (strlcpy(out, buf, outsize) >= outsize)
+			return -1;
+		return 0;
+	}
+
+	/* Zero out the bits outside of the configured prefix */
+	plen = ipv6_prefixlen;
+	for (i = 0; i < 16; i++) {
+		if (plen >= 8) {
+			plen -= 8;
+			continue;
+		}
+		if (plen > 0)
+			a6.s6_addr[i] &= (uint8_t)(0xff << (8 - plen));
+		else
+			a6.s6_addr[i] = 0;
+		plen = 0;
+	}
+
+	if (inet_ntop(AF_INET6, &a6, buf, sizeof(buf)) == NULL)
+		return -1;
+
+	if (ipv6_prefixlen < 128)
+		snprintf(out, outsize, "%s/%d", buf, ipv6_prefixlen);
+	else
+		snprintf(out, outsize, "%s", buf);
+
+	return 0;
+}
+
 int 
 main(int ac, char *av[])
 {
 	char		hostaddr  [255];
 	char           *hostaddprp = hostaddr;
+	char		normalized[INET6_ADDRSTRLEN + 8];
 	bzero(hosts_table, sizeof(hosts_table));
 	int ch, done = 0, i, k, matches = 0;
 	FILE           *infile = stdin;
@@ -213,6 +288,13 @@ main(int ac, char *av[])
 	reset_ip = iniparser_getint(ini, ":reset_ip", -1);
 	if (reset_ip < 0) {
 		syslog(LOG_ALERT, "Configuration error - 'reset_ip' key not found in \"%s\"",
+		config_path);
+		exit(EX_CONFIG);
+	}
+	/* IPv6 addresses are aggregated to this prefix length, default /64 */
+	ipv6_prefixlen = iniparser_getint(ini, ":ipv6_prefixlen", 64);
+	if (ipv6_prefixlen < 0 || ipv6_prefixlen > 128) {
+		syslog(LOG_ALERT, "Configuration error - 'ipv6_prefixlen' must be between 0 and 128 in \"%s\"",
 		config_path);
 		exit(EX_CONFIG);
 	}
@@ -295,9 +377,16 @@ main(int ac, char *av[])
 				}
 			}
 			if (matches == 1){ /* we have ip address to add */
-				if (!check_host(hostaddprp)) {
+				if (normalize_host(hostaddprp, normalized,
+				    sizeof(normalized)) != 0) {
+					syslog(LOG_WARNING, "Ignoring invalid address \"%s\"",
+					hostaddprp);
+					matches = 0;
+					break;
+				}
+				if (!check_host(normalized)) {
 					/* not in table, add */
-					add_host(hostaddprp);
+					add_host(normalized);
 				}
 				matches = 0;
 				break;

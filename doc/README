@@ -73,11 +73,16 @@ Configuration
    removed from table, thus becoming unblocked.
    "ipfw2_table_no" - number of ipfw2 table to add bad IPs to. Must
    match -t parameter of bruteblockd.
+   "ipv6_prefixlen" - prefix length used to aggregate IPv6 attackers.
+   Addresses that share the same network are counted and blocked
+   together (default 64), which prevents evasion by rotating addresses
+   inside the attacker's prefix. Use 128 to block individual IPv6
+   addresses.
 
 TODO
 
-   Add configuration examples for other popular services, add IPv6 support 
-   (help  needed), optimize algorithms used by bruteblock, add pf support
+   Add configuration examples for other popular services,
+   optimize algorithms used by bruteblock, add pf support
 
    Any feedback is appreciated. Author's email: samm [at] os2.kiev.ua.
 
