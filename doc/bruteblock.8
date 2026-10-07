@@ -1,4 +1,4 @@
-.Dd July 31, 2006
+.Dd October 7, 2026
 .Dt bruteblock 8
 .Os FreeBSD
 .Sh NAME 
@@ -16,24 +16,27 @@
 .Sh DESCRIPTION 
 Bruteblock allows system administrators to block various bruteforce
 attacks on UNIX services. The program analyzes system logs and adds
-attacker's IP address into ipfw2 table effectively blocking them.
-Addresses are automatically removed from the table after specified
-amount of time. Bruteblock uses regular expressions to parse logs,
-which provides flexibility allowing it to be used with almost any
+the attacker's address into an ipfw2 table, effectively blocking it.
+IPv6 addresses are aggregated by prefix before blocking, so an attacker
+cannot evade blocking by rotating through addresses inside its own
+network (see
+.Em ipv6_prefixlen
+below). Addresses are automatically removed from the table after a
+specified amount of time. Bruteblock uses regular expressions to parse
+logs, which provides flexibility allowing it to be used with almost any
 network service. Bruteblock is written in pure C, doesn't use any
-external programs and work with ipfw2 tables via raw sockets API.
+external programs and works with ipfw2 tables via the raw sockets API.
 .Pp
 Bruteblock consists of two binaries: 
 .Em bruteblock
 and 
 .Em bruteblockd .
-.Pp
 .Ss bruteblock
 .Em bruteblock
 is intended to be used in
 .Pa /etc/syslog.conf
 to pipe
-logs into. It does log analysis and adds attacker IP's into ipfw2
+logs into. It does log analysis and adds attacker addresses into ipfw2
 table. Along with address and mask, every entry in ipfw2 table has
 .Em value
 field, which is used by bruteblock to store expiration time as 32
@@ -47,14 +50,14 @@ Specify path to config file
 Display help
 .El
 .Ss bruteblockd
-.Em bruteblock
+.Em bruteblockd
 is a daemon, which checks ipfw2 table periodically and removes
 expired entries.
 .Pp
 The following command line options are available for bruteblockd:
 .Bl -tag -width indent
 .It Fl t Ar table
-Specify numer of ipfw2 table
+Specify number of the ipfw2 table
 .It Fl s Ar sleep
 Specify table check interval
 .It Fl p Ar pidfile
@@ -65,17 +68,21 @@ Run the daemon in the foreground (do not daemonize)
 Display help
 .El
 .Pp
-Such design allows to avoid any IPC use and to store entries for
-different services in one table. Also makes it is easy for the
-administrator to get list of currently blocked addresses and edit
-the list if needed so.
+Such design avoids any IPC use and allows storing entries for
+different services in one table. It also makes it easy for the
+administrator to get a list of currently blocked addresses and edit
+the list if needed.
 .Sh CONFIGURATION FILE
 Configuration file for bruteblock utility allows you to set following
 values:
 .Bl -tag -width indent 
 .It regexp
-regular expression in perl-compatible format that is used to extract
-failed password attempts from log files.
+regular expression in PCRE2 (Perl-compatible) format that is used to
+extract failed password attempts from log files.  Exactly one capturing
+group must match the address of the attacker.
+.It regexp0, regexp1, ... regexp9
+up to ten additional regular expressions, evaluated the same way as
+.Em regexp .
 .It max_count, within_time
 defines time interval and maximum number of failed password attempts
 during that interval. If the number is exceeded by specific IP,
@@ -116,7 +123,10 @@ bruteblockd_flags="-s 5"
 .Pp
 don't forget to change table number and sleep interval to match your needs.
 .Pp
-Now launch bruteblockd: /usr/local/etc/rc.d/bruteblockd.sh start
+Now launch bruteblockd:
+.Bd -literal
+service bruteblockd start
+.Ed
 .Pp
 Finally, setup your ipfw to block addresses contained in the table:
 .Bd -literal
@@ -127,12 +137,15 @@ ipfw add 100 deny ip from table\\(1\\) to me
 you may want to add these lines to you
 .Pa /etc/rc.firewall .
 .Sh SYSTEM REQUIREMENTS 
-Bruteblock requires FreeBSD 5.3 and above (tested on FreeBSD 5.3,
-5.4, 6.1) with ipfw2 firewall.
+Bruteblock requires FreeBSD with the ipfw2 firewall.  The PCRE2 library
+from
+.Pa devel/pcre2
+is required to build it.
 .Sh SEE ALSO 
-.Xr ipfw 8 ,
 .Xr rc.conf 5 ,
-.Xr syslog.conf 5
-.Sh AUTHOR 
-.An Alex Samorukov Aq samm@os2.kiev.ua ,
-.Ad http://samm.kiev.ua/bruteblock/
+.Xr syslog.conf 5 ,
+.Xr ipfw 8
+.Sh AUTHORS 
+.An Alex Samorukov Aq samm@os2.kiev.ua
+.Pp
+.Lk http://samm.kiev.ua/bruteblock/ Bruteblock homepage
